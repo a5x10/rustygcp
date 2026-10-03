@@ -48,6 +48,7 @@ let created = tasks.create(&HttpTask {
     audience: "https://svc.example",
     name: Some("g1-phase-3"),                            // dedup: false if this name exists or did in the last ~hour
     at: Some(deadline),                                  // chrono DateTime<Utc>; None = now
+    dispatch_deadline: None,                             // how long to wait for the answer; None = 10 min, at most 30
 }).await?;
 
 // The internal route that Cloud Tasks or Cloud Scheduler calls. Fails closed.

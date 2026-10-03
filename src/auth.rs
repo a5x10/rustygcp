@@ -47,24 +47,20 @@ impl Auth {
     pub fn from_env() -> Self {
         match std::env::var("GOOGLE_OAUTH_ACCESS_TOKEN") {
             Ok(t) if !t.is_empty() => Self::static_token(t),
-            _ => Self::metadata(),
+            _ => Self::metadata_at(METADATA_TOKEN),
         }
     }
 
-    pub fn static_token(token: impl Into<String>) -> Self {
+    pub(crate) fn static_token(token: impl Into<String>) -> Self {
         Self::new(Kind::Static(token.into()))
     }
 
-    pub fn metadata() -> Self {
-        Self::metadata_at(METADATA_TOKEN)
-    }
-
     /// For an emulator that checks no token (Firestore's takes `Bearer owner`).
-    pub fn emulator() -> Self {
+    pub(crate) fn emulator() -> Self {
         Self::new(Kind::Emulator)
     }
 
-    pub fn is_emulator(&self) -> bool {
+    pub(crate) fn is_emulator(&self) -> bool {
         matches!(self.0.kind, Kind::Emulator)
     }
 

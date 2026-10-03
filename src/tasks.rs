@@ -1,6 +1,8 @@
 //! Cloud Tasks: create an HTTP task that calls back with a Google OIDC token
 //! (the receiver checks it with [`crate::Verifier`]).
 
+use std::time::Duration;
+
 use base64::Engine;
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde_json::{Value, json};
@@ -30,6 +32,9 @@ pub struct HttpTask<'a> {
     pub name: Option<&'a str>,
     /// Not before this time; `None` = now.
     pub at: Option<DateTime<Utc>>,
+    /// How long Cloud Tasks waits for the answer before it counts the attempt
+    /// as failed; `None` = its default of 10 minutes, the most it allows is 30.
+    pub dispatch_deadline: Option<Duration>,
 }
 
 impl Tasks {
@@ -73,6 +78,9 @@ impl Tasks {
         if let Some(at) = t.at {
             task["scheduleTime"] = json!(at.to_rfc3339_opts(SecondsFormat::Micros, true));
         }
+        if let Some(d) = t.dispatch_deadline {
+            task["dispatchDeadline"] = json!(format!("{}s", d.as_secs()));
+        }
         json!({ "task": task })
     }
 }
@@ -89,6 +97,7 @@ mod tests {
         audience: "https://svc.example",
         name: None,
         at: None,
+        dispatch_deadline: None,
     };
 
     #[tokio::test]
@@ -115,6 +124,7 @@ mod tests {
         let named = HttpTask {
             name: Some("g1-phase-3"),
             at: DateTime::from_timestamp(1_790_000_000, 0),
+            dispatch_deadline: Some(Duration::from_secs(900)),
             ..TASK
         };
 
@@ -136,6 +146,7 @@ mod tests {
             json!({ "task": {
                 "name": format!("{queue}/tasks/g1-phase-3"),
                 "scheduleTime": "2026-09-21T14:13:20.000000Z",
+                "dispatchDeadline": "900s",
                 "httpRequest": {
                     "url": "https://svc.example/internal/phase",
                     "httpMethod": "POST",
@@ -148,9 +159,10 @@ mod tests {
                 },
             }})
         );
-        // no name, no time: Cloud Tasks names it and runs it now
+        // no name, no time, no deadline: Cloud Tasks names it, runs it now, waits 10 minutes
         let unnamed = server.body(2);
-        assert!(unnamed["task"].get("name").is_none());
-        assert!(unnamed["task"].get("scheduleTime").is_none());
+        for field in ["name", "scheduleTime", "dispatchDeadline"] {
+            assert!(unnamed["task"].get(field).is_none(), "{field}");
+        }
     }
 }

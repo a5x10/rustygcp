@@ -117,7 +117,7 @@ impl Firestore {
         }
     }
 
-    pub fn new(project: &str, auth: &Auth) -> Self {
+    fn new(project: &str, auth: &Auth) -> Self {
         Self::at(
             "https://firestore.googleapis.com/v1".into(),
             project,
@@ -125,7 +125,7 @@ impl Firestore {
         )
     }
 
-    pub fn emulator(host: &str, project: &str) -> Self {
+    fn emulator(host: &str, project: &str) -> Self {
         Self::at(format!("http://{host}/v1"), project, Auth::emulator())
     }
 

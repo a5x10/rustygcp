@@ -5,19 +5,19 @@
 use std::sync::atomic::{AtomicU32, Ordering::Relaxed};
 
 use rustygcp::firestore::{integer_value, string_value};
-use rustygcp::{Doc, Error, Firestore, Precondition, Write};
+use rustygcp::{Auth, Doc, Error, Firestore, Precondition, Write};
 use serde_json::{Map, Value, json};
 
 /// A client on a fresh emulator project (a project is a namespace there), or
 /// `None` when no emulator is running.
 fn firestore(test: &str) -> Option<Firestore> {
     static N: AtomicU32 = AtomicU32::new(0);
-    let Ok(host) = std::env::var("FIRESTORE_EMULATOR_HOST") else {
+    if std::env::var("FIRESTORE_EMULATOR_HOST").is_err() {
         eprintln!("{test}: skipped, FIRESTORE_EMULATOR_HOST unset (run `just test`)");
         return None;
-    };
+    }
     let project = format!("fake-{}-{}", std::process::id(), N.fetch_add(1, Relaxed));
-    Some(Firestore::emulator(&host, &project))
+    Some(Firestore::from_env(&project, &Auth::from_env()))
 }
 
 fn fields(v: Value) -> Map<String, Value> {
@@ -132,6 +132,14 @@ async fn preconditions_refuse_and_write_nothing() {
     assert!(fs.get("c/other").await.unwrap().is_none());
     assert!(fs.get("c/counter").await.unwrap().is_none());
     assert_eq!(must_get(&fs, "c/d").await.integer("n"), Some(10));
+
+    // a document deleted since it was read (another tab) loses its precondition too
+    fs.commit(&[Write::Delete { path: "c/d".into() }])
+        .await
+        .unwrap();
+    let gone = fs.commit(&[put("c/d", v(40), pre())]).await;
+    assert!(matches!(gone, Err(Error::Precondition)), "{gone:?}");
+    assert!(fs.get("c/d").await.unwrap().is_none());
 }
 
 #[tokio::test]
