@@ -1,0 +1,32 @@
+[package]
+name = "rustygcp"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "Apache-2.0"
+description = "The few Google Cloud REST calls a small Cloud Run service needs: Firestore, Cloud Storage, Cloud Tasks, OIDC"
+repository = "https://github.com/a5x10/rustygcp"
+publish = false
+
+# rustytail: a new crate, so every dependency is new. The set is what the code
+# it was extracted from already used (async on reqwest + rustls), at the same
+# versions, so a consumer compiles each of them once.
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+tokio = { version = "1.41", features = ["sync"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+jsonwebtoken = { version = "10", default-features = false, features = ["rust_crypto"] }
+base64 = "0.22"
+thiserror = "2"
+
+[dev-dependencies]
+tokio = { version = "1.41", features = ["macros", "rt-multi-thread", "net", "io-util"] }
+# a throwaway RSA key per test run signs the OIDC tokens: no key is committed
+rsa = "0.9"
+rand = "0.8"
+
+# RSA key generation in an unoptimised build takes tens of seconds
+[profile.dev.package.num-bigint-dig]
+opt-level = 3
